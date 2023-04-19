@@ -1,3 +1,4 @@
+import java.awt.*;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
@@ -9,19 +10,8 @@ import java.util.Scanner;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-/**
- * Sala de chat implementada com multithread.
- * O cliente se conecta e o servidor pede um nome de usuário (chave única) enviando o texto "SUBMITNAME".
- * Depois, o servidor pede uma cor para utilizar no chat (cada usuário possui uma cor).
- * Quando o usuário informa seu nome e cor, o servidor reconhece o mesmo com o texto "NAMEACCEPTED".
- * Após isso, todas as mensagens daquele cliente serão transmitidas para todos os outros clientes conectados
- * (todas as mensagens são prefixadas com o texto "MESSAGE".
- */
 public class ChatServer {
 
-    private static Set<String> names = new HashSet<>();
-
-    // Cada usuário é representado em um HashMap, onde username é a chave e a cor é o valor.
     private static HashMap<String, String> users = new HashMap<String, String>();
     private static Set<PrintWriter> writers = new HashSet<>();
 
@@ -37,10 +27,14 @@ public class ChatServer {
 
     private static class Handler implements Runnable {
         private String name;
-        private Socket socket;
-        private Scanner in;
-        private PrintWriter out;
+
         private String color;
+
+        private Socket socket;
+
+        private Scanner in;
+
+        private PrintWriter out;
 
         public Handler(Socket socket) {
             this.socket = socket;
@@ -55,7 +49,8 @@ public class ChatServer {
                 while (true) {
                     out.println("SUBMITNAME");
                     name = in.nextLine();
-                    if (name == null) {
+                    if (name == null || name.isEmpty()) {
+                        out.println("SUBMITNAME");
                         return;
                     }
                     synchronized (users) {
@@ -83,11 +78,12 @@ public class ChatServer {
 
                 // Escreve para todos os clientes que o usuário entrou no chat.
                 for (PrintWriter writer : writers) {
-                    writer.println("MESSAGE;"+ color + ";" +  name + ";" + " has joined");
+                    Color c = Color.BLACK;
+                    writer.println("MESSAGE;"+ c.getRGB() + "; >>>>" +  name + ";" + " entrou no chat.");
                 }
                 writers.add(out);
 
-                // Accept messages from this client and broadcast them.
+                // Transmite as mensagens para os usuários
                 while (true) {
                     String input = in.nextLine();
                     if (input.toLowerCase().startsWith("/quit")) {
@@ -107,7 +103,8 @@ public class ChatServer {
                     System.out.println(name + " is leaving");
                     users.remove(name);
                     for (PrintWriter writer : writers) {
-                        writer.println("MESSAGE;"+ color + ";" +  name + ";" + " has left");
+                        Color c = Color.BLACK;
+                        writer.println("MESSAGE;"+ c.getRGB() + "; >>>>" +  name + ";" + " saiu do chat.");
                     }
                 }
                 try {

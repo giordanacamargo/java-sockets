@@ -1,4 +1,5 @@
 import javax.swing.*;
+import javax.swing.text.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -7,42 +8,24 @@ import java.io.PrintWriter;
 import java.net.Socket;
 import java.util.Scanner;
 
-/**
- * A simple Swing-based client for the chat server. Graphically it is a frame
- * with a text field for entering messages and a textarea to see the whole
- * dialog.
- *
- * The client follows the following Chat Protocol. When the server sends
- * "SUBMITNAME" the client replies with the desired screen name. The server will
- * keep sending "SUBMITNAME" requests as long as the client submits screen names
- * that are already in use. When the server sends a line beginning with
- * "NAMEACCEPTED" the client is now allowed to start sending the server
- * arbitrary strings to be broadcast to all chatters connected to the server.
- * When the server sends a line beginning with "MESSAGE" then all characters
- * following this string should be displayed in its message area.
- */
-public class ChatClient2 {
+public class ChatClient2 extends JFrame{
 
     String serverAddress;
     Scanner in;
     PrintWriter out;
     JFrame frame = new JFrame("Chatter");
     JTextField textField = new JTextField(50);
-    JTextArea messageArea = new JTextArea(16, 50);
+    JTextPane messageArea = new JTextPane();
 
-    /**
-     * Constructs the client by laying out the GUI and registering a listener with
-     * the textfield so that pressing Return in the listener sends the textfield
-     * contents to the server. Note however that the textfield is initially NOT
-     * editable, and only becomes editable AFTER the client receives the
-     * NAMEACCEPTED message from the server.
-     */
+
     public ChatClient2() {
         this.serverAddress = "localhost";
-
+        centerFrame();
+        messageArea.setPreferredSize(new Dimension(700, 700) );
         textField.setEditable(false);
         messageArea.setEditable(false);
         frame.getContentPane().add(textField, BorderLayout.SOUTH);
+        frame.setSize(700,700);
         frame.getContentPane().add(new JScrollPane(messageArea), BorderLayout.CENTER);
         frame.pack();
 
@@ -55,9 +38,13 @@ public class ChatClient2 {
         });
     }
 
-    private String getName() {
-        return JOptionPane.showInputDialog(frame, "Choose a screen name:", "Screen name selection",
+    private String getUserName() {
+        return JOptionPane.showInputDialog(frame, "Escolha um nome de usuário:", "Nome de Usuário",
                 JOptionPane.PLAIN_MESSAGE);
+    }
+
+    private String getColor() {
+        return String.valueOf(JColorChooser.showDialog(frame, "Escolha uma cor", Color.red).getRGB());
     }
 
     private void run() throws IOException {
@@ -69,14 +56,19 @@ public class ChatClient2 {
             while (in.hasNextLine()) {
                 String line = in.nextLine();
                 if (line.startsWith("SUBMITNAME")) {
-                    out.println(getName());
+                    out.println(getUserName());
+                } else if(line.startsWith("USERCOLOR")){
+                    out.println(getColor());
                 } else if (line.startsWith("NAMEACCEPTED")) {
                     this.frame.setTitle("Chatter - " + line.substring(13));
                     textField.setEditable(true);
                 } else if (line.startsWith("MESSAGE")) {
-                    messageArea.append(line.substring(8) + "\n");
+                    Color c = new Color(Integer.valueOf(getServerMessageUserColor(line)));
+                    appendToPane(getServerMessageUserName(line), getServerUserMessage(line), c);
                 }
             }
+        } catch (BadLocationException e) {
+            throw new RuntimeException(e);
         } finally {
             frame.setVisible(false);
             frame.dispose();
@@ -85,8 +77,60 @@ public class ChatClient2 {
 
     public static void main(String[] args) throws Exception {
         ChatClient2 client = new ChatClient2();
+        client.frame.setSize(700, 700);
         client.frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         client.frame.setVisible(true);
         client.run();
+    }
+
+    private String getServerUserMessage(String line) {
+        // Mensagem do Servidor - [0]
+        // Cor do usuário - [1]
+        // Nome - [2]
+        // Mensagem - [3]
+        String msg[] = line.split(";");
+        return msg[3];
+    }
+
+    private String getServerMessageUserColor (String line){
+        // Mensagem do Servidor - [0]
+        // Cor do usuário - [1]
+        // Nome - [2]
+        // Mensagem - [3]
+        String msg[] = line.split(";");
+        return msg[1];
+    }
+
+    private String getServerMessageUserName (String line){
+        // Mensagem do Servidor - [0]
+        // Cor do usuário - [1]
+        // Nome - [2]
+        // Mensagem - [3]
+        String msg[] = line.split(";");
+        return msg[2];
+    }
+
+    public void appendToPane(String name, String msg, Color c) throws BadLocationException {
+        StyleContext sc = StyleContext.getDefaultStyleContext();
+        AttributeSet aset = sc.addAttribute(SimpleAttributeSet.EMPTY, StyleConstants.Foreground, c); //cor do nome
+        aset = sc.addAttribute( aset, StyleConstants.FontFamily, "Lucida Console" );
+        aset = sc.addAttribute( aset, StyleConstants.Bold, true);
+        messageArea.getStyledDocument().insertString(messageArea.getDocument().getLength(), name, aset);
+
+        StyleContext sc2 = StyleContext.getDefaultStyleContext();
+        AttributeSet aset2 = sc2.addAttribute(SimpleAttributeSet.EMPTY, StyleConstants.Foreground, Color.BLACK);
+        aset2 = sc2.addAttribute( aset2, StyleConstants.FontFamily, "Lucida Console" );
+        aset2 = sc2.addAttribute( aset2, StyleConstants.Italic, true);
+        messageArea.getStyledDocument().insertString(messageArea.getDocument().getLength(), msg + "\n", aset2);
+    }
+
+    public void centerFrame() {
+        Dimension windowSize = getSize();
+        GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
+        Point centerPoint = ge.getCenterPoint();
+
+        int dx = (centerPoint.x - (windowSize.width / 2))-350;
+        int dy = (centerPoint.y - (windowSize.height / 2))-350;
+        frame.setLocation(dx, dy);
     }
 }
